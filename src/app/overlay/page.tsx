@@ -24,6 +24,44 @@ export default function OverlayPage() {
   const [isConnected, setIsConnected] = useState(false);
   const eventSourceRef = useRef<EventSource | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const reconnectTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const reconnectToStream = () => {
+    if (!roomId) return;
+
+    console.log("[TiktokChatbox] Reconnecting to stream");
+
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+      eventSourceRef.current = null;
+    }
+
+    const eventSource = new EventSource(
+      `/api/stream?roomId=${encodeURIComponent(roomId)}`,
+    );
+    eventSourceRef.current = eventSource;
+
+    eventSource.onmessage = (event) => {
+      try {
+        const raw = JSON.parse(event.data);
+        const message: Message = {
+          id: Date.now().toString() + Math.random(),
+          ...raw,
+          timestamp: new Date(raw.timestamp),
+        };
+        setMessages((prev) => {
+          const updated = [...prev, message];
+          return updated.slice(-30);
+        });
+      } catch (error) {
+        console.log("[TiktokChatbox] Stream parse error:", error);
+      }
+    };
+
+    eventSource.onerror = () => {
+      console.warn("[TiktokChatbox] SSE connection error, will retry...");
+    };
+  };
 
   useEffect(() => {
     if (!username) return;
@@ -54,39 +92,27 @@ export default function OverlayPage() {
   useEffect(() => {
     if (!roomId) return;
 
-    if (eventSourceRef.current) {
-      eventSourceRef.current.close();
+    reconnectToStream();
+
+    if (reconnectTimerRef.current) {
+      clearTimeout(reconnectTimerRef.current);
     }
-
-    const eventSource = new EventSource(
-      `/api/stream?roomId=${encodeURIComponent(roomId)}`,
-    );
-    eventSourceRef.current = eventSource;
-
-    eventSource.onmessage = (event) => {
-      try {
-        const raw = JSON.parse(event.data);
-        const message: Message = {
-          id: Date.now().toString() + Math.random(),
-          ...raw,
-          timestamp: new Date(raw.timestamp),
-        };
-        setMessages((prev) => {
-          const updated = [...prev, message];
-          return updated.slice(-100);
-        });
-      } catch (error) {
-        console.error("[TiktokChatbox] stream parse error:", error);
-      }
-    };
-
-    eventSource.onerror = () => {
-      console.warn("[TiktokChatbox] SSE connection error, will retry...");
-    };
+    reconnectTimerRef.current = setTimeout(() => {
+      reconnectToStream();
+      reconnectTimerRef.current = setTimeout(() => {
+        reconnectToStream();
+      }, 240000);
+    }, 240000);
 
     return () => {
-      eventSource.close();
-      eventSourceRef.current = null;
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+        eventSourceRef.current = null;
+      }
+      if (reconnectTimerRef.current) {
+        clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
     };
   }, [roomId]);
 
