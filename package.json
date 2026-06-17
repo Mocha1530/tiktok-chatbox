@@ -1,0 +1,43 @@
+{
+  "name": "tiktok-chatbox",
+  "version": "0.1.0",
+  "description": "",
+  "keywords": [
+    "tiktok",
+    "live",
+    "chat",
+    "browser",
+    "source",
+    "OBS"
+  ],
+  "homepage": "https://github.com/Mocha1530/tiktok-chatbox#readme",
+  "bugs": {
+    "url": "https://github.com/Mocha1530/tiktok-chatbox/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Mocha1530/tiktok-chatbox.git"
+  },
+  "license": "MIT",
+  "author": "Mocha1530 <yohan@meowhan.site>",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "build": "next build",
+    "dev": "next dev",
+    "start": "next start",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "next": "^15.5.19",
+    "react": "^19",
+    "react-dom": "^19",
+    "tiktok-live-connector": "2.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.5.2",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "typescript": "^5.9.2"
+  }
+}

@@ -1,0 +1,91 @@
+.overlay-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: transparent !important;
+  pointer-events: none;
+  overflow: hidden;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.messages-wrapper {
+  position: absolute;
+  bottom: 20px;
+  left: 20px;
+  right: 20px;
+  max-height: 80vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  pointer-events: none;
+  scrollbar-width: none;
+}
+
+.messages-wrapper::-webkit-scrollbar {
+  display: none;
+}
+
+.message {
+  background: rgba(0,0,0,0.6);
+  backdrop-filter: blur(4px);
+  color: #fff;
+  padding: 8px 14px;
+  border-radius: 20px;
+  font-size: 18px;
+  line-height: 1.4;
+  display: inline-block;
+  max-width: 80%;
+  word-wrap: break-word;
+  animation: slideUp -0.3s ease-out;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  border-left: 4px solid #ff0050;
+  pointer-events: none;
+  align-self: flex-start;
+}
+
+.message.chat {
+  border-left-color: #1e90ff;
+}
+
+.message.follow {
+border-left-color: #ffdd00;
+  background: rgba(255,215,0,0.2);
+}
+
+.message.gift {
+  border-left-color: #ff6b6b;
+  background: rgba(255,107,107,0.2);
+}
+
+.message.member {
+  border-left-color: #7bed9f;
+  background: rgba(123,237,159,0.15);
+}
+
+.message.like {
+  border-left-color: #ff4757;
+background: rgba(255,71,87,0.15);
+}
+
+.nickname {
+  font-weight: 700;
+  color: #ffcc00;
+}
+
+.comment {
+  color: #f0f0f0;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
