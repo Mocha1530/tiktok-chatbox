@@ -90,79 +90,137 @@ export default function OverlayPage() {
     setMessages([]);
   }, []);
 
-  const reconnectToStream = useCallback(() => {
-    if (!roomId) return;
-    console.log("[TiktokChatbox] Reconnecting to stream");
-
-    if (eventSourceRef.current) {
-      eventSourceRef.current.close();
-      eventSourceRef.current = null;
-    }
-
-    clearAllMessages();
-
-    const eventSource = new EventSource(
-      `/api/stream?roomId=${encodeURIComponent(roomId)}`,
-    );
-    eventSourceRef.current = eventSource;
-
-    eventSource.onmessage = (event) => {
-      try {
-        const raw = JSON.parse(event.data);
-        const message: Message = {
-          id: Date.now().toString() + Math.random(),
-          ...raw,
-          timestamp: new Date(raw.timestamp),
-        };
-        addMessage(message);
-      } catch (error) {
-        console.log("[TiktokChatbox] Stream parse error:", error);
+  const connect = useCallback(async () => {
+    if (!username) return null;
+    try {
+      console.log("[TiktokChatbox] connecting...");
+      const res = await fetch("/api/connect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        return data.roomId;
+      } else {
+        console.error("[TiktokChatbox] connection failed:", data.error);
+        return null;
       }
-    };
+    } catch (error) {
+      console.error("[TiktokChatbox] Connect error:", error);
+      return null;
+    }
+  }, [username]);
 
-    eventSource.onerror = () => {
-      console.warn("[TiktokChatbox] SSE connection error, will retry...");
-    };
-  }, [roomId, addMessage, clearAllMessages]);
+  const stream = useCallback(
+    (newRoomId: string) => {
+      if (!newRoomId) return;
+
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+        eventSourceRef.current = null;
+      }
+
+      clearAllMessages();
+
+      const eventSource = new EventSource(
+        `/api/stream?roomId=${encodeURIComponent(newRoomId)}`,
+      );
+      eventSourceRef.current = eventSource;
+
+      eventSource.onmessage = (event) => {
+        try {
+          const raw = JSON.parse(event.data);
+          const message: Message = {
+            id: Date.now().toString() + Math.random(),
+            ...raw,
+            timestamp: new Date(raw.timestamp),
+          };
+          addMessage(message);
+        } catch (error) {
+          console.log("[TiktokChatbox] Stream parse error:", error);
+        }
+      };
+
+      eventSource.onerror = () => {
+        console.warn("[TiktokChatbox] SSE connection error, will retry...");
+      };
+
+      setRoomId(newRoomId);
+      setIsConnected(true);
+    },
+    [addMessage, clearAllMessages],
+  );
+
+  // const reconnectToStream = useCallback(() => {
+  //   if (!roomId) return;
+  //   console.log("[TiktokChatbox] Reconnecting to stream");
+  //
+  //   if (eventSourceRef.current) {
+  //     eventSourceRef.current.close();
+  //     eventSourceRef.current = null;
+  //   }
+  //
+  //   clearAllMessages();
+  //
+  //   const eventSource = new EventSource(
+  //     `/api/stream?roomId=${encodeURIComponent(roomId)}`,
+  //   );
+  //   eventSourceRef.current = eventSource;
+  //
+  //   eventSource.onmessage = (event) => {
+  //     try {
+  //       const raw = JSON.parse(event.data);
+  //       const message: Message = {
+  //         id: Date.now().toString() + Math.random(),
+  //         ...raw,
+  //         timestamp: new Date(raw.timestamp),
+  //       };
+  //       addMessage(message);
+  //     } catch (error) {
+  //       console.log("[TiktokChatbox] Stream parse error:", error);
+  //     }
+  //   };
+  //
+  //   eventSource.onerror = () => {
+  //     console.warn("[TiktokChatbox] SSE connection error, will retry...");
+  //   };
+  // }, [roomId, addMessage, clearAllMessages]);
+
+  const connectToStream = useCallback(async () => {
+    console.log("[TiktokChatbox] Reconnecting...");
+    const newRoomId = await connect();
+    if (newRoomId) {
+      stream(newRoomId);
+    } else {
+      console.error("[TiktokChatbox] Reconnection failed");
+    }
+  }, [connect, stream]);
 
   useEffect(() => {
     if (!username) return;
-
-    const connect = async () => {
-      try {
-        console.log("[TiktokChatbox] connecting...");
-        const res = await fetch("/api/connect", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ username }),
-        });
-        const data = await res.json();
-        if (data.success) {
-          setRoomId(data.roomId);
-          setIsConnected(true);
-        } else {
-          console.error("[TiktokChatbox] connection failed:", data.error);
-        }
-      } catch (error) {
-        console.error("[TiktokChatbox] Connect error:", error);
-      }
-    };
-
-    connect();
-  }, [username]);
+    connectToStream();
+  }, [username, connectToStream]);
 
   useEffect(() => {
     if (!roomId) return;
-
-    reconnectToStream();
 
     if (reconnectTimerRef.current) {
       clearInterval(reconnectTimerRef.current);
     }
     reconnectTimerRef.current = setInterval(() => {
-      reconnectToStream();
+      connectToStream();
     }, 240000);
 
+    return () => {
+      if (reconnectTimerRef.current) {
+        clearInterval(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
+    };
+  }, [roomId, connectToStream]);
+
+  useEffect(() => {
     return () => {
       if (eventSourceRef.current) {
         eventSourceRef.current.close();
@@ -174,7 +232,7 @@ export default function OverlayPage() {
       }
       clearAllMessages();
     };
-  }, [roomId, reconnectToStream, clearAllMessages]);
+  }, [clearAllMessages]);
 
   useEffect(() => {
     if (messagesEndRef.current) {
