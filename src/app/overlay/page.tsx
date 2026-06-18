@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 type Message = {
@@ -13,6 +13,7 @@ type Message = {
   likeCount?: string;
   timestamp: Date;
   roomId: string;
+  removing?: boolean;
 };
 
 export default function OverlayPage() {
@@ -25,16 +26,80 @@ export default function OverlayPage() {
   const eventSourceRef = useRef<EventSource | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const reconnectTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const messageTimersRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
-  const reconnectToStream = () => {
+  const scheduleMessageRemoval = useCallback((messageId: string) => {
+    if (messageTimersRef.current.has(messageId)) {
+      clearTimeout(messageTimersRef.current.get(messageId));
+    }
+
+    const timer = setTimeout(() => {
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === messageId ? { ...msg, removing: true } : msg,
+        ),
+      );
+      setTimeout(() => {
+        setMessages((prev) => prev.filter((msg) => msg.id !== messageId));
+        messageTimersRef.current.delete(messageId);
+      }, 300);
+    }, 10000);
+    messageTimersRef.current.set(messageId, timer);
+  }, []);
+
+  const addMessage = useCallback(
+    (rawMessage: Omit<Message, "id" | "timestamp" | "removing">) => {
+      const newMessage: Message = {
+        ...rawMessage,
+        id: Date.now().toString() + Math.random(),
+        timestamp: new Date(),
+        removing: false,
+      };
+
+      setMessages((prev) => {
+        const last = prev[prev.length - 1];
+        if (
+          newMessage.type === "like" &&
+          last &&
+          last.type === "like" &&
+          last.uniqueId === newMessage.uniqueId
+        ) {
+          const updatedLast = {
+            ...last,
+            likeCount: String(
+              Number(last.likeCount || 0) + Number(newMessage.likeCount || 0),
+            ),
+            timestamp: new Date(),
+          };
+          const newList = [...prev.slice(0, -1), updatedLast];
+          scheduleMessageRemoval(updatedLast.id);
+          return newList;
+        }
+
+        const newList = [...prev, newMessage];
+        scheduleMessageRemoval(newMessage.id);
+        return newList;
+      });
+    },
+    [scheduleMessageRemoval],
+  );
+
+  const clearAllMessages = useCallback(() => {
+    messageTimersRef.current.forEach((timer) => clearTimeout(timer));
+    messageTimersRef.current.clear();
+    setMessages([]);
+  }, []);
+
+  const reconnectToStream = useCallback(() => {
     if (!roomId) return;
-
     console.log("[TiktokChatbox] Reconnecting to stream");
 
     if (eventSourceRef.current) {
       eventSourceRef.current.close();
       eventSourceRef.current = null;
     }
+
+    clearAllMessages();
 
     const eventSource = new EventSource(
       `/api/stream?roomId=${encodeURIComponent(roomId)}`,
@@ -49,10 +114,7 @@ export default function OverlayPage() {
           ...raw,
           timestamp: new Date(raw.timestamp),
         };
-        setMessages((prev) => {
-          const updated = [...prev, message];
-          return updated.slice(-30);
-        });
+        addMessage(message);
       } catch (error) {
         console.log("[TiktokChatbox] Stream parse error:", error);
       }
@@ -61,7 +123,7 @@ export default function OverlayPage() {
     eventSource.onerror = () => {
       console.warn("[TiktokChatbox] SSE connection error, will retry...");
     };
-  };
+  }, [roomId, addMessage, clearAllMessages]);
 
   useEffect(() => {
     if (!username) return;
@@ -95,13 +157,10 @@ export default function OverlayPage() {
     reconnectToStream();
 
     if (reconnectTimerRef.current) {
-      clearTimeout(reconnectTimerRef.current);
+      clearInterval(reconnectTimerRef.current);
     }
-    reconnectTimerRef.current = setTimeout(() => {
+    reconnectTimerRef.current = setInterval(() => {
       reconnectToStream();
-      reconnectTimerRef.current = setTimeout(() => {
-        reconnectToStream();
-      }, 240000);
     }, 240000);
 
     return () => {
@@ -110,11 +169,12 @@ export default function OverlayPage() {
         eventSourceRef.current = null;
       }
       if (reconnectTimerRef.current) {
-        clearTimeout(reconnectTimerRef.current);
+        clearInterval(reconnectTimerRef.current);
         reconnectTimerRef.current = null;
       }
+      clearAllMessages();
     };
-  }, [roomId]);
+  }, [roomId, reconnectToStream, clearAllMessages]);
 
   useEffect(() => {
     if (messagesEndRef.current) {
@@ -122,43 +182,44 @@ export default function OverlayPage() {
     }
   }, [messages]);
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setMessages((prev) => prev.slice(1));
-    }, 10000);
-    return () => clearTimeout(timer);
-  }, [messages]);
-
   const renderMessage = (msg: Message) => {
+    let className = "message";
+    if (msg.removing) {
+      className += " slide-out-right";
+    } else {
+      className += ` slide-in-right`;
+    }
+    className += ` ${msg.type}`;
+
     switch (msg.type) {
       case "chat":
         return (
-          <div key={msg.id} className="message chat">
+          <div key={msg.id} className={className}>
             <span className="nickname">{msg.nickname}</span>
             <span className="comment">: {msg.comment}</span>
           </div>
         );
       case "follow":
         return (
-          <div key={msg.id} className="message follow">
+          <div key={msg.id} className={className}>
             {msg.uniqueId} followed!
           </div>
         );
       case "gift":
         return (
-          <div key={msg.id} className="message gift">
+          <div key={msg.id} className={className}>
             {msg.uniqueId} sent {msg.giftId}!
           </div>
         );
       case "member":
         return (
-          <div key={msg.id} className="message member">
+          <div key={msg.id} className={className}>
             {msg.uniqueId} joined the stream!
           </div>
         );
       case "like":
         return (
-          <div key={msg.id} className="message like">
+          <div key={msg.id} className={className}>
             {msg.uniqueId} liked! ({msg.likeCount})
           </div>
         );

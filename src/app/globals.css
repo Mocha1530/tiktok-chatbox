@@ -12,14 +12,15 @@
 
 .messages-wrapper {
   position: absolute;
-  bottom: 20px;
-  left: 20px;
-  right: 20px;
+  bottom: 0;
+  left: 0;
+  right: 0;
   max-height: 80vh;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 6px;
+  padding: 20px;
   pointer-events: none;
   scrollbar-width: none;
 }
@@ -70,6 +71,14 @@ border-left-color: #ffdd00;
 background: rgba(255,71,87,0.15);
 }
 
+.message.slide-in-right {
+  animation: slideInRight 0.3s ease-out forwards;
+}
+
+.message.slide-out-right {
+  animation: slideOutRight 0.3s ease-in forwards;
+}
+
 .nickname {
   font-weight: 700;
   color: #ffcc00;
@@ -87,5 +96,27 @@ background: rgba(255,71,87,0.15);
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideOutRight {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(40px);
   }
 }
