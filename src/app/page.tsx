@@ -132,7 +132,7 @@ function ToggleSwitch({
     >
       <motion.div
         className="toggle-switch-thumb"
-        layout
+        animate={{ x: enabled ? 20 : 0 }}
         transition={{ type: "spring", stiffness: 500, damping: 30 }}
       />
     </button>
