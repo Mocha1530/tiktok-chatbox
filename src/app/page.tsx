@@ -358,6 +358,22 @@ function ConfigPanel({
           </div>
         ))}
 
+        <div
+          className="color-row"
+          style={{
+            borderTop: "1px solid #f0e6f2",
+            marginTop: "10px",
+            paddingTop: "14px",
+          }}
+        >
+          <span className="color-row-left">Text Color</span>
+          <ColorSwatch
+            color={config.textColor}
+            onChange={(color) => onChange({ textColor: color })}
+            ariaLabel="Change text color"
+          />
+        </div>
+
         <div className="slider-container">
           <div className="slider-header">
             <span className="slider-label">Message Limit</span>

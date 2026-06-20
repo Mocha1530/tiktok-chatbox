@@ -3,9 +3,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
+type MessageType = "chat" | "follow" | "gift" | "member" | "like";
+
 type Message = {
   id: string;
-  type: "chat" | "follow" | "gift" | "member" | "like";
+  type: MessageType;
   nickname?: string;
   comment?: string;
   uniqueId?: string;
@@ -16,9 +18,95 @@ type Message = {
   removing?: boolean;
 };
 
+const DEFAULT_COLORS: Record<MessageType, string> = {
+  chat: "#b5ead7",
+  follow: "#ffdac1",
+  gift: "#ffb3c6",
+  member: "#c7ceea",
+  like: "#e2f0cb",
+};
+
+function hexToRgba(hex: string, alpha: number): string {
+  const sanitized = hex.replace("#", "");
+  const r = parseInt(sanitized.substring(0, 2), 16);
+  const g = parseInt(sanitized.substring(2, 4), 16);
+  const b = parseInt(sanitized.substring(4, 6), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+function parseFilters(
+  searchParams: URLSearchParams,
+): Record<MessageType, boolean> {
+  const defaults: Record<MessageType, boolean> = {
+    chat: true,
+    follow: true,
+    gift: true,
+    member: true,
+    like: true,
+  };
+
+  const typesParam = searchParams.get("types");
+  if (!typesParam) return defaults;
+
+  const activeTypes = typesParam.split(",") as MessageType[];
+  const result: Record<MessageType, boolean> = {
+    chat: false,
+    follow: false,
+    gift: false,
+    member: false,
+    like: false,
+  };
+
+  activeTypes.forEach((t) => {
+    if (t in result) result[t] = true;
+  });
+
+  return result;
+}
+
+function parseColors(
+  searchParams: URLSearchParams,
+): Record<MessageType, string> {
+  const defaults: Record<MessageType, string> = {
+    chat: "#b5ead7",
+    follow: "#ffdac1",
+    gift: "#ffb3c6",
+    member: "#c7ceea",
+    like: "#e2f0cb",
+  };
+
+  const result = { ...defaults };
+
+  (Object.keys(defaults) as MessageType[]).forEach((type) => {
+    const param = searchParams.get(`${type}Color`);
+    if (param) {
+      result[type] = "#" + param;
+    }
+  });
+
+  return result;
+}
+
 export default function OverlayPage() {
   const searchParams = useSearchParams();
   const username = searchParams.get("username");
+
+  const config = useRef({
+    filters: parseFilters(searchParams),
+    bubbleColors: parseColors(searchParams),
+    textColor: searchParams.get("textColor")
+      ? "#" + searchParams.get("textColor")
+      : "#5a4a5c",
+    maxMessages: Math.min(
+      Math.max(Number(searchParams.get("maxMessages")) || 10, 3),
+      10,
+    ),
+    duration: Math.min(
+      Math.max(Number(searchParams.get("duration")) || 10, 5),
+      30,
+    ),
+    showUsername: searchParams.get("showUsername") !== "0",
+  });
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [roomId, setRoomId] = useState<string>("");
@@ -43,12 +131,14 @@ export default function OverlayPage() {
         setMessages((prev) => prev.filter((msg) => msg.id !== messageId));
         messageTimersRef.current.delete(messageId);
       }, 300);
-    }, 10000);
+    }, config.current.duration * 1000);
     messageTimersRef.current.set(messageId, timer);
   }, []);
 
   const addMessage = useCallback(
     (rawMessage: Omit<Message, "id" | "timestamp" | "removing">) => {
+      if (!config.current.filters[rawMessage.type]) return;
+
       const newMessage: Message = {
         ...rawMessage,
         id: Date.now().toString() + Math.random(),
@@ -76,7 +166,21 @@ export default function OverlayPage() {
           return newList;
         }
 
-        const newList = [...prev, newMessage];
+        let newList = [...prev, newMessage];
+        if (newList.length > config.current.maxMessages) {
+          const toRemove = newList.slice(
+            0,
+            newList.length - config.current.maxMessages,
+          );
+          toRemove.forEach((msg) => {
+            if (messageTimersRef.current.has(msg.id)) {
+              clearTimeout(messageTimersRef.current.get(msg.id));
+              messageTimersRef.current.delete(msg.id);
+            }
+          });
+          newList = newList.slice(-config.current.maxMessages);
+        }
+
         scheduleMessageRemoval(newMessage.id);
         return newList;
       });
@@ -247,38 +351,60 @@ export default function OverlayPage() {
     } else {
       className += ` slide-in-right`;
     }
-    className += ` ${msg.type}`;
+
+    const bubbleColor =
+      config.current.bubbleColors[msg.type] || DEFAULT_COLORS[msg.type];
+    const bgRgba = hexToRgba(bubbleColor, 0.8);
+    //    const borderColor = bubbleColor;
+    const textColor = config.current.textColor;
+    const showName = config.current.showUsername;
+
+    const bubbleStyle: React.CSSProperties = {
+      background: bgRgba,
+      //    borderLeftColor: borderColor,
+      color: textColor,
+    };
+    // className += ` ${msg.type}`;
 
     switch (msg.type) {
       case "chat":
         return (
-          <div key={msg.id} className={className}>
-            <span className="nickname">{msg.nickname}</span>
-            <span className="comment">: {msg.comment}</span>
+          <div key={msg.id} className={className} style={bubbleStyle}>
+            {showName && (
+              <span
+                className="nickname"
+                style={{ color: textColor, opacity: 0.85 }}
+              >
+                {msg.nickname}
+              </span>
+            )}
+            <span className="comment" style={{ color: textColor }}>
+              {showName ? ": " + msg.comment : msg.comment}
+            </span>
           </div>
         );
       case "follow":
         return (
-          <div key={msg.id} className={className}>
-            {msg.uniqueId} followed!
+          <div key={msg.id} className={className} style={bubbleStyle}>
+            {showName ? msg.uniqueId : "someone"} followed!
           </div>
         );
       case "gift":
         return (
-          <div key={msg.id} className={className}>
-            {msg.uniqueId} sent {msg.giftId}!
+          <div key={msg.id} className={className} style={bubbleStyle}>
+            {showName ? msg.uniqueId : "someone"} sent {msg.giftId}!
           </div>
         );
       case "member":
         return (
-          <div key={msg.id} className={className}>
-            {msg.uniqueId} joined the stream!
+          <div key={msg.id} className={className} style={bubbleStyle}>
+            {showName ? msg.uniqueId : "someone"} joined the stream!
           </div>
         );
       case "like":
         return (
-          <div key={msg.id} className={className}>
-            {msg.uniqueId} liked! ({msg.likeCount})
+          <div key={msg.id} className={className} style={bubbleStyle}>
+            {showName ? msg.uniqueId : "someone"} liked! ({msg.likeCount})
           </div>
         );
       default:

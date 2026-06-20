@@ -33,16 +33,15 @@
   background: rgba(0,0,0,0.6);
   backdrop-filter: blur(4px);
   color: #fff;
-  padding: 8px 14px;
-  border-radius: 20px;
-  font-size: 18px;
+  padding: 10px 16px;
+  border-radius: 20px 20px 20px 4px;
+  font-size: 15px;
   line-height: 1.4;
   display: inline-block;
   max-width: 80%;
   word-wrap: break-word;
   animation: slideUp -0.3s ease-out;
   box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-  border-left: 4px solid #ff0050;
   pointer-events: none;
   align-self: flex-start;
 }
