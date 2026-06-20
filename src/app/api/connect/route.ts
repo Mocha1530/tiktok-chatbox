@@ -1,8 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
-import {
-  WebcastPushConnection,
-  TikTokLiveConnection,
-} from "tiktok-live-connector";
+import { WebcastPushConnection } from "tiktok-live-connector";
 import { messageStore } from "@/lib/message-store";
 import { connectionManager } from "@/lib/connection-manager";
 
@@ -84,7 +81,7 @@ export async function POST(request: NextRequest) {
     });
 
     tiktokLiveConnection.on("chat", (data) => {
-      console.log(`[TikTokChatbox] API: ${data.nickname}: ${data.comment}`);
+      //     console.log(`[TikTokChatbox] API: ${data.nickname}: ${data.comment}`);
       messageStore.addMessage(currentRoomId, {
         type: "chat",
         nickname: data.nickname,
@@ -94,9 +91,9 @@ export async function POST(request: NextRequest) {
     });
 
     tiktokLiveConnection.on("follow", (data) => {
-      console.log(
-        `[TikTokChatbox] API: Thanks for the follow! ${data.uniqueId}`,
-      );
+      //   console.log(
+      //   `[TikTokChatbox] API: Thanks for the follow! ${data.uniqueId}`,
+      //);
       messageStore.addMessage(currentRoomId, {
         type: "follow",
         uniqueId: data.uniqueId,
@@ -104,19 +101,21 @@ export async function POST(request: NextRequest) {
     });
 
     tiktokLiveConnection.on("gift", (data) => {
-      console.log(
-        `[TikTokChatbox] API: ${data.uniqueId} (userId:${data.userId}) sent ${data.giftId}`,
-      );
+      //      console.log(
+      //      `[TikTokChatbox] API: ${data.uniqueId} (userId:${data.userId}) sent ${data.giftName}`,
+      //  );
       messageStore.addMessage(currentRoomId, {
         type: "gift",
         uniqueId: data.uniqueId,
         userId: data.userId?.toString(),
         giftId: data.giftId?.toString(),
+        giftName: data.giftName,
       });
     });
 
     tiktokLiveConnection.on("member", (data) => {
-      console.log(`[TikTokChatbox] API: ${data.uniqueId} joined the stream!`);
+      if (data.action !== 1) return;
+      //      console.log(`[TikTokChatbox] API: ${data.uniqueId} joined the stream!`);
       messageStore.addMessage(currentRoomId, {
         type: "member",
         uniqueId: data.uniqueId,
@@ -124,9 +123,9 @@ export async function POST(request: NextRequest) {
     });
 
     tiktokLiveConnection.on("like", (data) => {
-      console.log(
-        `[TikTokChatbox] API: ${data.uniqueId} liked the stream! (${data.likeCount} likes)`,
-      );
+      //     console.log(
+      //     `[TikTokChatbox] API: ${data.uniqueId} liked the stream! (${data.likeCount} likes)`,
+      //  );
       messageStore.addMessage(currentRoomId, {
         type: "like",
         uniqueId: data.uniqueId,

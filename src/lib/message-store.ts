@@ -6,6 +6,7 @@ interface TikTokMessage {
   uniqueId?: string;
   userId?: string;
   giftId?: string;
+  giftName?: string;
   likeCount?: string;
   timestamp: Date;
   roomId: string;

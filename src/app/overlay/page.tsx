@@ -12,6 +12,8 @@ type Message = {
   comment?: string;
   uniqueId?: string;
   giftId?: string;
+  giftName?: string;
+  giftCount?: string;
   likeCount?: string;
   timestamp: Date;
   roomId: string;
@@ -392,7 +394,7 @@ export default function OverlayPage() {
       case "gift":
         return (
           <div key={msg.id} className={className} style={bubbleStyle}>
-            {showName ? msg.uniqueId : "someone"} sent {msg.giftId}!
+            {showName ? msg.uniqueId : "someone"} sent a {msg.giftName}!
           </div>
         );
       case "member":

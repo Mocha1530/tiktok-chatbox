@@ -68,7 +68,12 @@ const TEST_MESSAGES: TestMessage[] = [
     nickname: "new_viewer",
     content: "joined the stream!",
   },
-  { id: "3", type: "gift", nickname: "gift_giver", content: "sent a gift!" },
+  {
+    id: "3",
+    type: "gift",
+    nickname: "gift_giver",
+    content: "sent a Heart Me!",
+  },
   { id: "4", type: "follow", nickname: "follower1", content: "followed!" },
   { id: "5", type: "like", nickname: "viewer22", content: "liked! (24)" },
 ];
